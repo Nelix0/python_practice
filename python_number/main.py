@@ -5,7 +5,6 @@ import json
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\\tesseract.exe'
 
-# Загружаем каскад для номеров
 plate_cascade = cv2.CascadeClassifier('haarcascade_russian_plate_number.xml')
 
 def clean_plate_text(text):
