@@ -5,32 +5,33 @@ import json
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\\tesseract.exe'
 
+# Загружаем каскад для номеров
+plate_cascade = cv2.CascadeClassifier('haarcascade_russian_plate_number.xml')
+
+def clean_plate_text(text):
+    text = text.replace(" ", "").replace("\n", "").upper()
+    return text
+
 def process_image(image_path):
     image = cv2.imread(image_path)
-
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.bilateralFilter(gray, 11, 17, 17)
-    edged = cv2.Canny(blur, 30, 200)
 
-    contours, _ = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    plates_detected = plate_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(100, 30))
 
     plates = []
 
-    for cnt in contours:
-        approx = cv2.approxPolyDP(cnt, 0.03 * cv2.arcLength(cnt, True), True)
-        x, y, w, h = cv2.boundingRect(approx)
+    for (x, y, w, h) in plates_detected:
+        roi = image[y:y+h, x:x+w]
+        text = pytesseract.image_to_string(roi, config='--psm 7')
+        text = clean_plate_text(text)
 
-        if w > 100 and h > 30 and w / h < 6:
-            roi = image[y:y+h, x:x+w]
-            text = pytesseract.image_to_string(roi, config='--psm 7').strip()
-
-            if text:
-                plates.append({
-                    "box": [x, y, w, h],
-                    "text": text
-                })
-                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.putText(image, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        if text:
+            plates.append({
+                "box": [int(x), int(y), int(w), int(h)],
+                "text": text
+            })
+            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.putText(image, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
     return plates, image
 
